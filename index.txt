@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>SPY Trading Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body { font-family: Arial; }
+    .signal { margin-top: 10px; font-size: 18px; }
+  </style>
+</head>
+<body>
+  <h1>SPY Trading Dashboard</h1>
+
+  <!-- 1-Minute Chart -->
+  <div>
+    <h3>1M Chart</h3>
+    <canvas id="chart1M"></canvas>
+    <div class="signal" id="signal1M">--</div>
+  </div>
+
+  <!-- 2-Minute Chart -->
+  <div>
+    <h3>2M Chart</h3>
+    <canvas id="chart2M"></canvas>
+    <div class="signal" id="signal2M">--</div>
+  </div>
+
+  <!-- 5-Minute Chart -->
+  <div>
+    <h3>5M Chart</h3>
+    <canvas id="chart5M"></canvas>
+    <div class="signal" id="signal5M">--</div>
+  </div>
+
+  <script>
+    const apiKey = "PKBZYDG3CL7PC8Y2"; // Replace with your key
+
+    // Initialize charts
+    const charts = {
+      '1M': { ctx: document.getElementById('chart1M'), signal: document.getElementById('signal1M') },
+      '2M': { ctx: document.getElementById('chart2M'), signal: document.getElementById('signal2M') },
+      '5M': { ctx: document.getElementById('chart5M'), signal: document.getElementById('signal5M') }
+    };
+
+    // Fetch data and update charts
+    async function updateCharts() {
+      for (const [timeframe, chart] of Object.entries(charts)) {
+        const response = await fetch(`https://www.alphavantage.co/query?function=TIME_SERIES_INTRADAY&symbol=SPY&interval=${timeframe}min&apikey=${apiKey}&outputsize=100&datatype=json`);
+        const data = await response.json();
+        const latest = data['Time Series (${timeframe}min)'][Object.keys(data['Time Series (${timeframe}min)'])[0]]; // Latest candle
+
+        // Update chart data
+        const chartData = {
+          labels: [latest.time.slice(11, 16)], // Time (e.g., 14:30)
+          datasets: [{
+            label: 'SPY',
+            data: [[latest.open, latest.high, latest.low, latest.close]],
+            borderColor: 'blue',
+            backgroundColor: 'rgba(0,0,0,0)',
+            borderWidth: 1
+          }]
+        };
+        new Chart(chart.ctx, { type: 'candlestick', data: chartData });
+
+        // Generate signal (example: 5-period MA crossover for 5M)
+        if (timeframe === '5') {
+          const prices = Object.values(data['Time Series (5min)']).map(c => parseFloat(c.close));
+          const ma5 = prices.slice(-5).reduce((a, b) => a + b) / 5;
+          const signal = latest.close > ma5 ? 'GREEN (BUY)' : 'RED (SELL)';
+          chart.signal.textContent = signal;
+        } else {
+          chart.signal.textContent = '--';
+        }
+      }
+    }
+
+    setInterval(updateCharts, 60000); // Update every minute
+  </script>
+</body>
+</html>
